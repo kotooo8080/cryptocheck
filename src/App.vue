@@ -55,9 +55,28 @@
 
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
+        <div>
+          <button
+            v-if="page > 1"
+            @click="page--"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >Назад</button> 
+          <button
+            v-if="hasNextPage"
+            @click="page++"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >Вперед</button>
+          <div>Фильтр: 
+            <input 
+              class="h-12 pl-2 pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
+              placeholder="Введите искомое значение"
+              v-model="filter"/>
+          </div> 
+        </div>
+        <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t in tickers"
+            v-for="t in coinsFilter()"
             :key="t.name"
             @click="select(t)"
             :class="{
@@ -95,6 +114,9 @@
           </div>
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
+        <p
+          v-if="!this.filter"
+        >{{ this.page }} / {{ Math.ceil(this.tickers.length/6) }}</p>
       </template>
       <section v-if="sel" class="relative">
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
@@ -153,6 +175,9 @@ export default {
       coins: [], //названия монет
       tickerExist: false, //для проверки существования такого тикера
       tickersData: {}, //для записи названий монет
+      page: 1, //текущая страница
+      filter: '', //строка фильтра
+      hasNextPage: true //существует ли следующая страница
     }
   },
 
@@ -182,7 +207,9 @@ export default {
           name: this.ticker,
           price: "-"
         }
+
         this.tickers.push(currentTicker); //добавление нового тикера
+        this.filter = ''; //сбрасываем значение фильтра
         
         localStorage.setItem('cryptocheck-list', JSON.stringify(this.tickers)); //сохраняем тикеры в локальное хранилище, чтобы при обновлении страницы они не пропадали
         this.subscibeToUpdates(currentTicker.name); //подписываемся на обновление данных для добавленного тикера
@@ -207,6 +234,15 @@ export default {
       return this.graph.map(
         price => 5 + ((price - minValue) * 95)/(maxValue - minValue)
       );
+    },
+
+    coinsFilter() { 
+      const start = (this.page - 1) * 6; //вычисление начального и конечного индексов элементов на страницах
+      const end = this.page * 6;
+      const filteredTickers = this.tickers
+        .filter(ticker => ticker.name.includes(this.filter));
+      this.hasNextPage = filteredTickers.length > end; //проверяем, остались ли еще элементы, которые не уместиились на страницу, если нет, то это была последняя страница
+      return filteredTickers.slice(start, end);
     },
 
     findTicker(value) { //метод для поиска названий криптовалют
@@ -234,11 +270,18 @@ export default {
     }
   },
   created() { //при загрузке компонента получить данные из ответа
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries()); //преобразование списка пар ключ-значение в объект
+    if(windowData.filter) //если у объекта windowData есть поле filter, то записать полученное значение
+      this.filter = windowData.filter;
+    
+    if(windowData.page) //если у объекта windowData есть поле page, то записать полученное значение
+      this.page = windowData.page;
+
     const coinsData = localStorage.getItem('cryptocheck-list');
     if(coinsData){
       this.tickers = JSON.parse(coinsData);
       this.tickers.forEach((ticker) => { //для каждого тикера подписываемся на обновления при загрзке страницы (то есть, при перезагрузке страницы 
-      //будет вызван метод, обновляющий цены тикеров)
+        //будет вызван метод, обновляющий цены тикеров)
         this.subscibeToUpdates(ticker.name);
       })
     }
@@ -252,9 +295,17 @@ export default {
       context.tickersData = data.Data //сохраняем полученные данные
     });
   },
-  watch: { //отслеживание внесения изменений в поле ticker
+  watch: { //отслеживание внесения изменений в переменные или поля
     ticker: function(val) {
       this.findTicker(val); //вызов метода поиска названий монет при каждом изменении поля ticker
+    },
+    filter() { //отслеживание изменений переменной filter
+      this.page = 1; //при изменении сбросить текущую страницу на первую
+      window.history.pushState(null, document.title, `${window.location.pathname}?filter=${this.filter}&page=${this.page}`);
+    },
+    page() {
+      this.page = 1; //при изменении сбросить текущую страницу на первую
+      window.history.pushState(null, document.title, `${window.location.pathname}?filter=${this.filter}&page=${this.page}`);
     }
   }
 }
