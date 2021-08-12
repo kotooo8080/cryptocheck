@@ -20,7 +20,11 @@
               />
             </div>
             <div v-if="coins.length" class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-            <span v-for= "c in coins" v-bind:key = "c" class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
+            <span 
+              v-for= "c in coins" 
+              v-bind:key = "c"
+              v-on:click = "addCoin(c)" 
+              class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
               {{ c }}
             </span>
           </div> 
@@ -154,25 +158,32 @@ export default {
 
   methods: {
     add(){
-      const currentTicker = { //объект для записи нового тикера
-        name: this.ticker,
-        price: "-"
-      }
-      this.tickers.push(currentTicker); //добавление нового тикера
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=a491c752d293ecb0918d80f0aa5d5ca9e378742dd5bda2203b59490d1a4d1e3d`
-        );
-        const data = await f.json();
-
-        currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2); //toFixed - знаки после запятой, toPrecision - значащие цифры
-        //this.tickers.find(t => t.name === currentTicker.name).price =
-          //data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-        if(this.sel?.name === currentTicker.name) {
-          this.graph.push(data.USD);
+      this.tickerExist = this.tickers.some((elem) => { //проверяем, есть ли уже такая монета в массиве
+        return elem.name == this.ticker; 
+      })
+      if(!this.tickerExist) {
+        const currentTicker = { //объект для записи нового тикера
+          name: this.ticker,
+          price: "-"
         }
-      }, 3000);
+        this.tickers.push(currentTicker); //добавление нового тикера
+       // localStorage.setItem('cryptochect-list', JSON.stringify(this.tickers))
+
+        setInterval(async () => {
+          const f = await fetch(
+            `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=a491c752d293ecb0918d80f0aa5d5ca9e378742dd5bda2203b59490d1a4d1e3d`
+          );
+          const data = await f.json();
+
+          currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2); //toFixed - знаки после запятой, toPrecision - значащие цифры
+          //this.tickers.find(t => t.name === currentTicker.name).price =
+            //data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+          if(this.sel?.name === currentTicker.name) {
+            this.graph.push(data.USD);
+          }
+        }, 3000);
+      }
       this.ticker = ""; //очищаем инпут с тикером
     },
 
@@ -210,8 +221,18 @@ export default {
       for(let k = 0; newArray.length > 4? k < 4: k < newArray.length; k++){
         testArr[k] = newArray[k].slice(newArray[k].indexOf('(') + 1, newArray[k].indexOf(')'));
       }
-      console.log(testArr);
       this.coins = testArr;
+    },
+
+    addCoin(coin){
+      this.tickerExist = this.tickers.some((elem) => { //проверяем, есть ли уже такая монета в массиве
+        return elem.name == coin; 
+      })
+      if(!this.tickerExist){ //если такой монеты еще нет, то добавляем ее в массив монет
+        this.ticker = coin;
+        this.add();
+      }
+      this.ticker = ""; //очищаем инпут с тикером
     }
   },
   async created() { //при загрузке компонента получить данные из ответа
@@ -222,7 +243,6 @@ export default {
     })
     .then(function (data) {
       context.tickersData = data.Data
-      console.log(context.tickersData);
     });
   },
   watch: { //отслеживание внесения изменений в поле ticker
