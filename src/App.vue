@@ -157,6 +157,22 @@ export default {
   },
 
   methods: {
+    subscibeToUpdates(tickerName) {
+      setInterval(async () => {
+          const f = await fetch(
+            `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=a491c752d293ecb0918d80f0aa5d5ca9e378742dd5bda2203b59490d1a4d1e3d`
+          );
+          const data = await f.json();
+          
+          this.tickers.find(t => t.name === tickerName).price =
+            data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+
+          if(this.sel?.name === tickerName) {
+            this.graph.push(data.USD);
+          }
+        }, 3000);
+    }, 
+
     add(){
       this.tickerExist = this.tickers.some((elem) => { //проверяем, есть ли уже такая монета в массиве
         return elem.name == this.ticker; 
@@ -167,22 +183,10 @@ export default {
           price: "-"
         }
         this.tickers.push(currentTicker); //добавление нового тикера
-       // localStorage.setItem('cryptochect-list', JSON.stringify(this.tickers))
-
-        setInterval(async () => {
-          const f = await fetch(
-            `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=a491c752d293ecb0918d80f0aa5d5ca9e378742dd5bda2203b59490d1a4d1e3d`
-          );
-          const data = await f.json();
-
-          currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2); //toFixed - знаки после запятой, toPrecision - значащие цифры
-          //this.tickers.find(t => t.name === currentTicker.name).price =
-            //data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-          if(this.sel?.name === currentTicker.name) {
-            this.graph.push(data.USD);
-          }
-        }, 3000);
+        
+        localStorage.setItem('cryptocheck-list', JSON.stringify(this.tickers)); //сохраняем тикеры в локальное хранилище, чтобы при обновлении страницы они не пропадали
+        this.subscibeToUpdates(currentTicker.name);
+        
       }
       this.ticker = ""; //очищаем инпут с тикером
     },
@@ -193,7 +197,7 @@ export default {
     },
 
     handleDelete(el) { //удаление элементов из массива
-      this.tickers = this.tickers.filter(t => t != el)
+      this.tickers = this.tickers.filter(t => t != el);
     },
 
     normalizeGraph() { //метод, подстраивающий граф под значения
@@ -207,7 +211,7 @@ export default {
 
     findTicker(value) { //метод для поиска названий криптовалют
       const arr = [],
-            testArr = [];
+            coinsArr = [];
       let i = 0;
       Object.keys(this.tickersData).forEach(function(key) {
         arr[i] = this[key].FullName;
@@ -219,30 +223,29 @@ export default {
       })
     
       for(let k = 0; newArray.length > 4? k < 4: k < newArray.length; k++){
-        testArr[k] = newArray[k].slice(newArray[k].indexOf('(') + 1, newArray[k].indexOf(')'));
+        coinsArr[k] = newArray[k].slice(newArray[k].indexOf('(') + 1, newArray[k].indexOf(')'));
       }
-      this.coins = testArr;
+      this.coins = coinsArr;
     },
 
     addCoin(coin){
-      this.tickerExist = this.tickers.some((elem) => { //проверяем, есть ли уже такая монета в массиве
-        return elem.name == coin; 
-      })
-      if(!this.tickerExist){ //если такой монеты еще нет, то добавляем ее в массив монет
-        this.ticker = coin;
-        this.add();
-      }
-      this.ticker = ""; //очищаем инпут с тикером
+      this.ticker = coin;
+      this.add();
     }
   },
-  async created() { //при загрузке компонента получить данные из ответа
-    const context = this;
-    await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+  created() { //при загрузке компонента получить данные из ответа
+    const coinsData = localStorage.getItem('cryptocheck-list');
+    if(coinsData){
+      this.tickers = JSON.parse(coinsData)
+    }
+
+    const context = this; //сохранение контекста
+    fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true') //запрос для получения списка монет
     .then(function (response){
       return response.json()
     })
     .then(function (data) {
-      context.tickersData = data.Data
+      context.tickersData = data.Data //сохраняем полученные данные
     });
   },
   watch: { //отслеживание внесения изменений в поле ticker
