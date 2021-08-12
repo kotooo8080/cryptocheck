@@ -146,8 +146,8 @@ export default {
 
   data() {
     return{
-      ticker: '',
-      tickers: [],
+      ticker: '', //текущий тикер (значение в инпуте)
+      tickers: [], //добавленные тикеры
       sel: null, //здесь будет записываться выбранный элемент, для которого будем показывать график
       graph: [], //данные для графика
       coins: [], //названия монет
@@ -157,7 +157,7 @@ export default {
   },
 
   methods: {
-    subscibeToUpdates(tickerName) {
+    subscibeToUpdates(tickerName) { //метод, обновляющий цены тикеров раз в 3 секунды
       setInterval(async () => {
           const f = await fetch(
             `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=a491c752d293ecb0918d80f0aa5d5ca9e378742dd5bda2203b59490d1a4d1e3d`
@@ -185,15 +185,15 @@ export default {
         this.tickers.push(currentTicker); //добавление нового тикера
         
         localStorage.setItem('cryptocheck-list', JSON.stringify(this.tickers)); //сохраняем тикеры в локальное хранилище, чтобы при обновлении страницы они не пропадали
-        this.subscibeToUpdates(currentTicker.name);
+        this.subscibeToUpdates(currentTicker.name); //подписываемся на обновление данных для добавленного тикера
         
       }
       this.ticker = ""; //очищаем инпут с тикером
     },
 
     select(ticker) {
-      this.sel = ticker;
-      this.graph = [];
+      this.sel = ticker; //ставим выбранным элементом элемент по которому кликнули
+      this.graph = []; //очищаем график
     },
 
     handleDelete(el) { //удаление элементов из массива
@@ -213,30 +213,34 @@ export default {
       const arr = [],
             coinsArr = [];
       let i = 0;
-      Object.keys(this.tickersData).forEach(function(key) {
+      Object.keys(this.tickersData).forEach(function(key) { //получаем и записываем в массив значения полей FullName, из которых потом будем получать названия монет
         arr[i] = this[key].FullName;
         i++;
       }, this.tickersData);
 
-      const newArray = arr.filter(function(val) {
+      const newArray = arr.filter(function(val) { //ищем подходящие названия монет и записываем их в массив newArray
         return val.indexOf(value) !== -1
       })
     
-      for(let k = 0; newArray.length > 4? k < 4: k < newArray.length; k++){
+      for(let k = 0; newArray.length > 4? k < 4: k < newArray.length; k++){ //убираем все лишнее из элементов массива, чтобы оставить только названия монет
         coinsArr[k] = newArray[k].slice(newArray[k].indexOf('(') + 1, newArray[k].indexOf(')'));
       }
       this.coins = coinsArr;
     },
 
-    addCoin(coin){
-      this.ticker = coin;
+    addCoin(coin){ //вспомогательный метод для добавления новых монет
+      this.ticker = coin; //если название монеты берется из предложенных, то записываем его в инпут
       this.add();
     }
   },
   created() { //при загрузке компонента получить данные из ответа
     const coinsData = localStorage.getItem('cryptocheck-list');
     if(coinsData){
-      this.tickers = JSON.parse(coinsData)
+      this.tickers = JSON.parse(coinsData);
+      this.tickers.forEach((ticker) => { //для каждого тикера подписываемся на обновления при загрзке страницы (то есть, при перезагрузке страницы 
+      //будет вызван метод, обновляющий цены тикеров)
+        this.subscibeToUpdates(ticker.name);
+      })
     }
 
     const context = this; //сохранение контекста
